@@ -6,6 +6,7 @@
 (define-constant ERR_SENSOR_NOT_AUTHORIZED (err u104))
 (define-constant ERR_INVALID_TAX_RATE (err u105))
 (define-constant ERR_REPORT_ALREADY_SUBMITTED (err u106))
+(define-constant ERR_DISPUTE_NOT_FOUND (err u107))
 
 (define-data-var contract-admin principal CONTRACT_OWNER)
 (define-data-var global-tax-rate uint u10)
@@ -80,10 +81,22 @@
   }
 )
 
+(define-map disputes
+  { dispute-id: uint }
+  {
+    verification-id: uint,
+    smelter-id: uint,
+    reason: (string-ascii 200),
+    timestamp: uint,
+    resolved: bool
+  }
+)
+
 (define-data-var next-smelter-id uint u1)
 (define-data-var next-log-id uint u1)
 (define-data-var next-report-id uint u1)
 (define-data-var next-verification-id uint u1)
+(define-data-var next-dispute-id uint u1)
 
 (define-read-only (get-smelter (smelter-id uint))
   (map-get? smelters { smelter-id: smelter-id })
@@ -99,6 +112,10 @@
 
 (define-read-only (get-verification-result (verification-id uint))
   (map-get? verification-results { verification-id: verification-id })
+)
+
+(define-read-only (get-dispute (dispute-id uint))
+  (map-get? disputes { dispute-id: dispute-id })
 )
 
 (define-read-only (calculate-tax (weight uint) (tax-rate uint))
@@ -280,6 +297,35 @@
     
     (var-set next-verification-id (+ verification-id u1))
     (ok verification-id)
+  )
+)
+
+(define-public (submit-dispute
+  (verification-id uint)
+  (reason (string-ascii 200)))
+  (let (
+    (verification (unwrap! (map-get? verification-results { verification-id: verification-id }) ERR_DISPUTE_NOT_FOUND))
+    (smelter-id (get smelter-id verification))
+    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+    (dispute-id (var-get next-dispute-id))
+  )
+    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+    (map-set disputes
+      { dispute-id: dispute-id }
+      {
+        verification-id: verification-id,
+        smelter-id: smelter-id,
+        reason: reason,
+        timestamp: stacks-block-height,
+        resolved: false
+      }
+    )
+    (map-set verification-results
+      { verification-id: verification-id }
+      (merge verification { status: "DISPUTED" })
+    )
+    (var-set next-dispute-id (+ dispute-id u1))
+    (ok dispute-id)
   )
 )
 
