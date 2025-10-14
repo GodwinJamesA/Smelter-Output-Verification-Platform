@@ -11,10 +11,11 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 ## 🚀 Key Features
 
 - 📊 **Real-time Output Logging**: IoT sensors automatically record smelting output
-- 🔍 **Automated Verification**: Compare sensor data with reported figures  
+- 🔍 **Automated Verification**: Compare sensor data with reported figures
 - 💰 **Tax & Royalty Calculation**: Automatic calculation based on actual output
 - 🛡️ **Tamper-Proof Records**: Immutable blockchain storage
 - ⚠️ **Discrepancy Detection**: Identifies reporting inconsistencies with penalties
+- 📝 **Comprehensive Audit Trail**: Track all critical actions with timestamped logs for enhanced transparency and compliance
 
 ## 📋 Contract Functions
 
@@ -36,6 +37,15 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - `verify-output` - Compare actual vs reported output and calculate taxes
 - `set-tax-rates` - Update global tax/royalty rates (admin only)
 - `update-smelter-rates` - Set custom rates per smelter (admin only)
+- `pay-taxes-and-royalties` - Direct payment of accumulated taxes and royalties
+
+### Audit Trail
+- `get-audit-entry` - Retrieve specific audit log entries
+- `register-smelter-with-audit` - Register smelter with audit logging
+- `log-output-with-audit` - Log output with audit trail
+- `submit-reported-output-with-audit` - Submit reports with audit logging
+- `verify-output-with-audit` - Verify output with audit trail
+- `pay-taxes-and-royalties-with-audit` - Pay taxes with audit logging
 
 ## 🛠️ Usage
 
@@ -98,6 +108,11 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - Tax and penalty amounts
 - Verification status
 
+### Audit Trail Records
+- Action type, timestamp, and details
+- Smelter-specific activity logs
+- Immutable chronological history
+
 ## 🔒 Security Features
 
 - ✅ Owner-only smelter operations
@@ -105,6 +120,7 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - ✅ Input validation and error handling
 - ✅ Authorized sensor checks
 - ✅ Immutable audit trail
+- ✅ Comprehensive action logging for all critical operations
 
 ## 💡 Benefits
 

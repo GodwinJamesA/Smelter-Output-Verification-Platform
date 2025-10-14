@@ -471,3 +471,132 @@
     (ok true)
   )
 )
+
+(define-public (pay-taxes-and-royalties (smelter-id uint))
+  (let (
+    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+    (tax-owed (get total-tax-owed smelter))
+    (royalty-owed (get total-royalty-owed smelter))
+    (total-payment (+ tax-owed royalty-owed))
+  )
+    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+    (asserts! (> total-payment u0) ERR_INVALID_OUTPUT)
+    (try! (stx-transfer? total-payment tx-sender (var-get contract-admin)))
+    (map-set smelters
+      { smelter-id: smelter-id }
+      (merge smelter {
+        total-tax-owed: u0,
+        total-royalty-owed: u0
+      })
+    )
+    (ok total-payment)
+  )
+)
+
+(define-map audit-trail
+  { audit-id: uint }
+  {
+    smelter-id: uint,
+    action: (string-ascii 50),
+    timestamp: uint,
+    details: (string-ascii 200)
+  }
+)
+
+(define-data-var next-audit-id uint u1)
+
+(define-read-only (get-audit-entry (audit-id uint))
+  (map-get? audit-trail { audit-id: audit-id })
+)
+
+(define-private (log-audit (smelter-id uint) (action (string-ascii 50)) (details (string-ascii 200)))
+  (let ((audit-id (var-get next-audit-id)))
+    (map-set audit-trail
+      { audit-id: audit-id }
+      {
+        smelter-id: smelter-id,
+        action: action,
+        timestamp: stacks-block-height,
+        details: details
+      }
+    )
+    (var-set next-audit-id (+ audit-id u1))
+  )
+)
+
+(define-public (register-smelter-with-audit
+  (name (string-ascii 100))
+  (location (string-ascii 100))
+  (license-number (string-ascii 50)))
+  (let ((result (register-smelter name location license-number)))
+    (match result
+      smelter-id (begin
+        (log-audit smelter-id "REGISTER_SMELTER" (concat "Registered smelter: " name))
+        result
+      )
+      error result
+    )
+  )
+)
+
+(define-public (log-output-with-audit
+  (sensor-id (string-ascii 50))
+  (metal-type (string-ascii 20))
+  (weight-kg uint)
+  (purity-percentage uint)
+  (batch-id (string-ascii 50)))
+  (let ((result (log-output sensor-id metal-type weight-kg purity-percentage batch-id)))
+    (match result
+      log-id (begin
+        (let ((sensor (unwrap-panic (map-get? authorized-sensors { sensor-id: sensor-id }))))
+          (log-audit (get smelter-id sensor) "LOG_OUTPUT" (concat "Logged output for batch: " batch-id))
+        )
+        result
+      )
+      error result
+    )
+  )
+)
+
+(define-public (submit-reported-output-with-audit
+  (smelter-id uint)
+  (reporting-period uint)
+  (metal-type (string-ascii 20))
+  (claimed-weight-kg uint)
+  (claimed-purity uint))
+  (let ((result (submit-reported-output smelter-id reporting-period metal-type claimed-weight-kg claimed-purity)))
+    (match result
+      report-id (begin
+        (log-audit smelter-id "SUBMIT_REPORT" "Submitted reported output")
+        result
+      )
+      error result
+    )
+  )
+)
+
+(define-public (verify-output-with-audit
+  (smelter-id uint)
+  (period uint))
+  (let ((result (verify-output smelter-id period)))
+    (match result
+      verification-id (begin
+        (log-audit smelter-id "VERIFY_OUTPUT" "Verified output")
+        result
+      )
+      error result
+    )
+  )
+)
+
+(define-public (pay-taxes-and-royalties-with-audit (smelter-id uint))
+  (let ((result (pay-taxes-and-royalties smelter-id)))
+    (match result
+      payment-amount (begin
+        (log-audit smelter-id "PAY_TAXES_ROYALTIES" "Paid taxes and royalties")
+        result
+      )
+      error result
+    )
+  )
+)
