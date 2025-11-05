@@ -16,6 +16,7 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - 🛡️ **Tamper-Proof Records**: Immutable blockchain storage
 - ⚠️ **Discrepancy Detection**: Identifies reporting inconsistencies with penalties
 - 📝 **Comprehensive Audit Trail**: Track all critical actions with timestamped logs for enhanced transparency and compliance
+- ⏸️ **Emergency Pause Mechanism**: Admin-controlled contract pause functionality for emergency situations, ensuring operational safety and risk mitigation
 
 ## 📋 Contract Functions
 
@@ -46,6 +47,11 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - `submit-reported-output-with-audit` - Submit reports with audit logging
 - `verify-output-with-audit` - Verify output with audit trail
 - `pay-taxes-and-royalties-with-audit` - Pay taxes with audit logging
+
+### Emergency Controls
+- `pause-contract` - Pause all contract operations (admin only)
+- `unpause-contract` - Resume contract operations (admin only)
+- `is-contract-paused` - Check current pause status
 
 ## 🛠️ Usage
 
@@ -121,6 +127,7 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - ✅ Authorized sensor checks
 - ✅ Immutable audit trail
 - ✅ Comprehensive action logging for all critical operations
+- ✅ Emergency pause mechanism for operational safety
 
 ## 💡 Benefits
 
@@ -129,6 +136,7 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - ⚡ **Real-time Monitoring**: Continuous output tracking
 - 📈 **Data Analytics**: Historical production analysis
 - 🏛️ **Regulatory Compliance**: Transparent reporting for authorities
+- 🛑 **Emergency Response**: Quick contract suspension capability for critical situations
 
 ## 🚀 Getting Started
 

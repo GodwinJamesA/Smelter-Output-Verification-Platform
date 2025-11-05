@@ -133,30 +133,33 @@
   )
 )
 
-(define-public (register-smelter 
+(define-public (register-smelter
   (name (string-ascii 100))
   (location (string-ascii 100))
   (license-number (string-ascii 50)))
-  (let ((smelter-id (var-get next-smelter-id)))
-    (asserts! (is-none (map-get? smelters { smelter-id: smelter-id })) ERR_ALREADY_REGISTERED)
-    (map-set smelters
-      { smelter-id: smelter-id }
-      {
-        owner: tx-sender,
-        name: name,
-        location: location,
-        license-number: license-number,
-        tax-rate: (var-get global-tax-rate),
-        royalty-rate: (var-get global-royalty-rate),
-        total-actual-output: u0,
-        total-reported-output: u0,
-        total-tax-owed: u0,
-        total-royalty-owed: u0,
-        active: true
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let ((smelter-id (var-get next-smelter-id)))
+      (asserts! (is-none (map-get? smelters { smelter-id: smelter-id })) ERR_ALREADY_REGISTERED)
+      (map-set smelters
+        { smelter-id: smelter-id }
+        {
+          owner: tx-sender,
+          name: name,
+          location: location,
+          license-number: license-number,
+          tax-rate: (var-get global-tax-rate),
+          royalty-rate: (var-get global-royalty-rate),
+          total-actual-output: u0,
+          total-reported-output: u0,
+          total-tax-owed: u0,
+          total-royalty-owed: u0,
+          active: true
+        }
+      )
+      (var-set next-smelter-id (+ smelter-id u1))
+      (ok smelter-id)
     )
-    (var-set next-smelter-id (+ smelter-id u1))
-    (ok smelter-id)
   )
 )
 
@@ -164,18 +167,21 @@
   (sensor-id (string-ascii 50))
   (smelter-id uint)
   (sensor-type (string-ascii 50)))
-  (let ((smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND)))
-    (asserts! (or (is-eq tx-sender (get owner smelter)) (is-eq tx-sender (var-get contract-admin))) ERR_UNAUTHORIZED)
-    (map-set authorized-sensors
-      { sensor-id: sensor-id }
-      {
-        smelter-id: smelter-id,
-        sensor-type: sensor-type,
-        calibration-date: stacks-block-height,
-        active: true
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let ((smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND)))
+      (asserts! (or (is-eq tx-sender (get owner smelter)) (is-eq tx-sender (var-get contract-admin))) ERR_UNAUTHORIZED)
+      (map-set authorized-sensors
+        { sensor-id: sensor-id }
+        {
+          smelter-id: smelter-id,
+          sensor-type: sensor-type,
+          calibration-date: stacks-block-height,
+          active: true
+        }
+      )
+      (ok true)
     )
-    (ok true)
   )
 )
 
@@ -185,38 +191,41 @@
   (weight-kg uint)
   (purity-percentage uint)
   (batch-id (string-ascii 50)))
-  (let (
-    (sensor (unwrap! (map-get? authorized-sensors { sensor-id: sensor-id }) ERR_SENSOR_NOT_AUTHORIZED))
-    (log-id (var-get next-log-id))
-    (smelter-id (get smelter-id sensor))
-  )
-    (asserts! (get active sensor) ERR_SENSOR_NOT_AUTHORIZED)
-    (asserts! (> weight-kg u0) ERR_INVALID_OUTPUT)
-    (asserts! (<= purity-percentage u100) ERR_INVALID_OUTPUT)
-    
-    (map-set output-logs
-      { log-id: log-id }
-      {
-        smelter-id: smelter-id,
-        sensor-id: sensor-id,
-        timestamp: stacks-block-height,
-        metal-type: metal-type,
-        weight-kg: weight-kg,
-        purity-percentage: purity-percentage,
-        batch-id: batch-id,
-        verified: true
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let (
+      (sensor (unwrap! (map-get? authorized-sensors { sensor-id: sensor-id }) ERR_SENSOR_NOT_AUTHORIZED))
+      (log-id (var-get next-log-id))
+      (smelter-id (get smelter-id sensor))
     )
-    
-    (let ((smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND)))
-      (map-set smelters
-        { smelter-id: smelter-id }
-        (merge smelter { total-actual-output: (+ (get total-actual-output smelter) weight-kg) })
+      (asserts! (get active sensor) ERR_SENSOR_NOT_AUTHORIZED)
+      (asserts! (> weight-kg u0) ERR_INVALID_OUTPUT)
+      (asserts! (<= purity-percentage u100) ERR_INVALID_OUTPUT)
+
+      (map-set output-logs
+        { log-id: log-id }
+        {
+          smelter-id: smelter-id,
+          sensor-id: sensor-id,
+          timestamp: stacks-block-height,
+          metal-type: metal-type,
+          weight-kg: weight-kg,
+          purity-percentage: purity-percentage,
+          batch-id: batch-id,
+          verified: true
+        }
       )
+
+      (let ((smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND)))
+        (map-set smelters
+          { smelter-id: smelter-id }
+          (merge smelter { total-actual-output: (+ (get total-actual-output smelter) weight-kg) })
+        )
+      )
+
+      (var-set next-log-id (+ log-id u1))
+      (ok log-id)
     )
-    
-    (var-set next-log-id (+ log-id u1))
-    (ok log-id)
   )
 )
 
@@ -226,106 +235,115 @@
   (metal-type (string-ascii 20))
   (claimed-weight-kg uint)
   (claimed-purity uint))
-  (let (
-    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
-    (report-id (var-get next-report-id))
-  )
-    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
-    (asserts! (> claimed-weight-kg u0) ERR_INVALID_OUTPUT)
-    (asserts! (<= claimed-purity u100) ERR_INVALID_OUTPUT)
-    
-    (map-set reported-outputs
-      { report-id: report-id }
-      {
-        smelter-id: smelter-id,
-        reporting-period: reporting-period,
-        metal-type: metal-type,
-        claimed-weight-kg: claimed-weight-kg,
-        claimed-purity: claimed-purity,
-        timestamp: stacks-block-height,
-        verified: false
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let (
+      (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+      (report-id (var-get next-report-id))
     )
-    
-    (map-set smelters
-      { smelter-id: smelter-id }
-      (merge smelter { total-reported-output: (+ (get total-reported-output smelter) claimed-weight-kg) })
+      (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+      (asserts! (> claimed-weight-kg u0) ERR_INVALID_OUTPUT)
+      (asserts! (<= claimed-purity u100) ERR_INVALID_OUTPUT)
+
+      (map-set reported-outputs
+        { report-id: report-id }
+        {
+          smelter-id: smelter-id,
+          reporting-period: reporting-period,
+          metal-type: metal-type,
+          claimed-weight-kg: claimed-weight-kg,
+          claimed-purity: claimed-purity,
+          timestamp: stacks-block-height,
+          verified: false
+        }
+      )
+
+      (map-set smelters
+        { smelter-id: smelter-id }
+        (merge smelter { total-reported-output: (+ (get total-reported-output smelter) claimed-weight-kg) })
+      )
+
+      (var-set next-report-id (+ report-id u1))
+      (ok report-id)
     )
-    
-    (var-set next-report-id (+ report-id u1))
-    (ok report-id)
   )
 )
 
 (define-public (verify-output
   (smelter-id uint)
   (period uint))
-  (let (
-    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
-    (verification-id (var-get next-verification-id))
-    (actual-output (get total-actual-output smelter))
-    (reported-output (get total-reported-output smelter))
-    (discrepancy (calculate-discrepancy actual-output reported-output))
-    (tax-amount (calculate-tax actual-output (get tax-rate smelter)))
-    (royalty-amount (calculate-royalty actual-output (get royalty-rate smelter)))
-    (penalty (if (> discrepancy u10) (* tax-amount u2) u0))
-  )
-    (asserts! (or (is-eq tx-sender (var-get contract-admin)) (is-eq tx-sender (get owner smelter))) ERR_UNAUTHORIZED)
-    
-    (map-set verification-results
-      { verification-id: verification-id }
-      {
-        smelter-id: smelter-id,
-        period: period,
-        actual-output: actual-output,
-        reported-output: reported-output,
-        discrepancy-percentage: discrepancy,
-        tax-calculated: tax-amount,
-        royalty-calculated: royalty-amount,
-        penalty-applied: penalty,
-        status: (if (> discrepancy u10) "DISCREPANCY" "VERIFIED")
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let (
+      (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+      (verification-id (var-get next-verification-id))
+      (actual-output (get total-actual-output smelter))
+      (reported-output (get total-reported-output smelter))
+      (discrepancy (calculate-discrepancy actual-output reported-output))
+      (tax-amount (calculate-tax actual-output (get tax-rate smelter)))
+      (royalty-amount (calculate-royalty actual-output (get royalty-rate smelter)))
+      (penalty (if (> discrepancy u10) (* tax-amount u2) u0))
     )
-    
-    (map-set smelters
-      { smelter-id: smelter-id }
-      (merge smelter {
-        total-tax-owed: (+ (get total-tax-owed smelter) tax-amount penalty),
-        total-royalty-owed: (+ (get total-royalty-owed smelter) royalty-amount)
-      })
+      (asserts! (or (is-eq tx-sender (var-get contract-admin)) (is-eq tx-sender (get owner smelter))) ERR_UNAUTHORIZED)
+
+      (map-set verification-results
+        { verification-id: verification-id }
+        {
+          smelter-id: smelter-id,
+          period: period,
+          actual-output: actual-output,
+          reported-output: reported-output,
+          discrepancy-percentage: discrepancy,
+          tax-calculated: tax-amount,
+          royalty-calculated: royalty-amount,
+          penalty-applied: penalty,
+          status: (if (> discrepancy u10) "DISCREPANCY" "VERIFIED")
+        }
+      )
+
+      (map-set smelters
+        { smelter-id: smelter-id }
+        (merge smelter {
+          total-tax-owed: (+ (get total-tax-owed smelter) tax-amount penalty),
+          total-royalty-owed: (+ (get total-royalty-owed smelter) royalty-amount)
+        })
+      )
+
+      (var-set next-verification-id (+ verification-id u1))
+      (ok verification-id)
     )
-    
-    (var-set next-verification-id (+ verification-id u1))
-    (ok verification-id)
   )
 )
 
 (define-public (submit-dispute
   (verification-id uint)
   (reason (string-ascii 200)))
-  (let (
-    (verification (unwrap! (map-get? verification-results { verification-id: verification-id }) ERR_DISPUTE_NOT_FOUND))
-    (smelter-id (get smelter-id verification))
-    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
-    (dispute-id (var-get next-dispute-id))
-  )
-    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
-    (map-set disputes
-      { dispute-id: dispute-id }
-      {
-        verification-id: verification-id,
-        smelter-id: smelter-id,
-        reason: reason,
-        timestamp: stacks-block-height,
-        resolved: false
-      }
+  (begin
+    (try! (assert-not-paused))
+    (let (
+      (verification (unwrap! (map-get? verification-results { verification-id: verification-id }) ERR_DISPUTE_NOT_FOUND))
+      (smelter-id (get smelter-id verification))
+      (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+      (dispute-id (var-get next-dispute-id))
     )
-    (map-set verification-results
-      { verification-id: verification-id }
-      (merge verification { status: "DISPUTED" })
+      (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+      (map-set disputes
+        { dispute-id: dispute-id }
+        {
+          verification-id: verification-id,
+          smelter-id: smelter-id,
+          reason: reason,
+          timestamp: stacks-block-height,
+          resolved: false
+        }
+      )
+      (map-set verification-results
+        { verification-id: verification-id }
+        (merge verification { status: "DISPUTED" })
+      )
+      (var-set next-dispute-id (+ dispute-id u1))
+      (ok dispute-id)
     )
-    (var-set next-dispute-id (+ dispute-id u1))
-    (ok dispute-id)
   )
 )
 
@@ -401,10 +419,13 @@
 (define-public (bulk-log-outputs
   (sensor-id (string-ascii 50))
   (outputs (list 20 {metal-type: (string-ascii 20), weight-kg: uint, purity-percentage: uint, batch-id: (string-ascii 50)})))
-  (let ((sensor (unwrap! (map-get? authorized-sensors { sensor-id: sensor-id }) ERR_SENSOR_NOT_AUTHORIZED)))
-    (asserts! (get active sensor) ERR_SENSOR_NOT_AUTHORIZED)
-    (fold log-single-output outputs sensor-id)
-    (ok true)
+  (begin
+    (try! (assert-not-paused))
+    (let ((sensor (unwrap! (map-get? authorized-sensors { sensor-id: sensor-id }) ERR_SENSOR_NOT_AUTHORIZED)))
+      (asserts! (get active sensor) ERR_SENSOR_NOT_AUTHORIZED)
+      (fold log-single-output outputs sensor-id)
+      (ok true)
+    )
   )
 )
 
@@ -473,23 +494,26 @@
 )
 
 (define-public (pay-taxes-and-royalties (smelter-id uint))
-  (let (
-    (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
-    (tax-owed (get total-tax-owed smelter))
-    (royalty-owed (get total-royalty-owed smelter))
-    (total-payment (+ tax-owed royalty-owed))
-  )
-    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
-    (asserts! (> total-payment u0) ERR_INVALID_OUTPUT)
-    (try! (stx-transfer? total-payment tx-sender (var-get contract-admin)))
-    (map-set smelters
-      { smelter-id: smelter-id }
-      (merge smelter {
-        total-tax-owed: u0,
-        total-royalty-owed: u0
-      })
+  (begin
+    (try! (assert-not-paused))
+    (let (
+      (smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND))
+      (tax-owed (get total-tax-owed smelter))
+      (royalty-owed (get total-royalty-owed smelter))
+      (total-payment (+ tax-owed royalty-owed))
     )
-    (ok total-payment)
+      (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+      (asserts! (> total-payment u0) ERR_INVALID_OUTPUT)
+      (try! (stx-transfer? total-payment tx-sender (var-get contract-admin)))
+      (map-set smelters
+        { smelter-id: smelter-id }
+        (merge smelter {
+          total-tax-owed: u0,
+          total-royalty-owed: u0
+        })
+      )
+      (ok total-payment)
+    )
   )
 )
 
@@ -504,6 +528,8 @@
 )
 
 (define-data-var next-audit-id uint u1)
+
+(define-data-var contract-paused bool false)
 
 (define-read-only (get-audit-entry (audit-id uint))
   (map-get? audit-trail { audit-id: audit-id })
@@ -599,4 +625,28 @@
       error result
     )
   )
+)
+
+(define-public (pause-contract)
+  (begin
+    (asserts! (is-eq tx-sender (var-get contract-admin)) ERR_UNAUTHORIZED)
+    (var-set contract-paused true)
+    (ok true)
+  )
+)
+
+(define-public (unpause-contract)
+  (begin
+    (asserts! (is-eq tx-sender (var-get contract-admin)) ERR_UNAUTHORIZED)
+    (var-set contract-paused false)
+    (ok true)
+  )
+)
+
+(define-private (assert-not-paused)
+  (ok (asserts! (not (var-get contract-paused)) ERR_UNAUTHORIZED))
+)
+
+(define-read-only (is-contract-paused)
+  (var-get contract-paused)
 )
