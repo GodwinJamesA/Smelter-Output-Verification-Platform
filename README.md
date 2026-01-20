@@ -17,12 +17,14 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - ⚠️ **Discrepancy Detection**: Identifies reporting inconsistencies with penalties
 - 📝 **Comprehensive Audit Trail**: Track all critical actions with timestamped logs for enhanced transparency and compliance
 - ⏸️ **Emergency Pause Mechanism**: Admin-controlled contract pause functionality for emergency situations, ensuring operational safety and risk mitigation
+- 👤 **Voluntary Deactivation**: Smelter owners can self-deactivate their facilities for better control
 
 ## 📋 Contract Functions
 
 ### Smelter Management
 - `register-smelter` - Register a new smelting facility
 - `deactivate-smelter` - Deactivate a smelter (admin only)
+- `deactivate-own-smelter` - Allow smelter owners to deactivate their own facilities
 - `get-smelter-summary` - View smelter statistics
 
 ### Sensor Management  
@@ -137,6 +139,7 @@ Smart contracts connected to IoT weight sensors that automatically log refined m
 - 📈 **Data Analytics**: Historical production analysis
 - 🏛️ **Regulatory Compliance**: Transparent reporting for authorities
 - 🛑 **Emergency Response**: Quick contract suspension capability for critical situations
+- 🎛️ **Owner Empowerment**: Direct control over facility status without admin dependency
 
 ## 🚀 Getting Started
 

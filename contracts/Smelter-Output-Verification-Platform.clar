@@ -389,6 +389,17 @@
   )
 )
 
+(define-public (deactivate-own-smelter (smelter-id uint))
+  (let ((smelter (unwrap! (map-get? smelters { smelter-id: smelter-id }) ERR_SMELTER_NOT_FOUND)))
+    (asserts! (is-eq tx-sender (get owner smelter)) ERR_UNAUTHORIZED)
+    (map-set smelters
+      { smelter-id: smelter-id }
+      (merge smelter { active: false })
+    )
+    (ok true)
+  )
+)
+
 (define-public (deactivate-sensor (sensor-id (string-ascii 50)))
   (let ((sensor (unwrap! (map-get? authorized-sensors { sensor-id: sensor-id }) ERR_SENSOR_NOT_AUTHORIZED)))
     (asserts! (is-eq tx-sender (var-get contract-admin)) ERR_UNAUTHORIZED)
